@@ -16,7 +16,18 @@ test('CI übernimmt Tag-Version und sammelt nur Installer mit eindeutigen Namen'
     writeFileSync(config, '{"version":"0.1.0"}');
     assert.equal(run('release-config.ts', { GITHUB_REF_NAME: 'v0.2.0-beta.1' }).status, 0);
     assert.equal(JSON.parse(readFileSync(config, 'utf8')).version, '0.2.0-beta.1');
-    assert.notEqual(run('release-config.ts', { GITHUB_REF_NAME: 'invalid' }).status, 0);
+    assert.equal(JSON.parse(readFileSync(config, 'utf8')).bundle.windows.wix.version, '0.2.0');
+    for (const tag of ['v1.2.3', 'v1.2.3-rc.2', 'v255.255.65535']) {
+      assert.equal(run('release-config.ts', { GITHUB_REF_NAME: tag }).status, 0);
+      const result = JSON.parse(readFileSync(config, 'utf8'));
+      assert.equal(result.version, tag.slice(1));
+      assert.equal(result.bundle.windows.wix.version, tag.slice(1).split('-')[0]);
+    }
+    const beforeInvalid = readFileSync(config, 'utf8');
+    for (const tag of ['invalid', 'v256.0.0', 'v0.256.0', 'v0.0.65536']) {
+      assert.notEqual(run('release-config.ts', { GITHUB_REF_NAME: tag }).status, 0);
+      assert.equal(readFileSync(config, 'utf8'), beforeInvalid);
+    }
     const bundle = join(cwd, 'src-tauri/target/aarch64-apple-darwin/release/bundle');
     mkdirSync(join(bundle, 'macos/App.app'), { recursive: true });
     mkdirSync(join(bundle, 'dmg'));

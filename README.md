@@ -213,7 +213,12 @@ git push origin v0.2.0
 ```
 
 `v0.2.0-beta.1` erzeugt ein Prerelease. Die Tag-Version wird im temporären
-CI-Checkout in die Tauri-Konfiguration übernommen. Erst wenn **alle** Builds und
+CI-Checkout in die Tauri-Konfiguration übernommen. Für MSI wird separat die
+numerische Basisversion verwendet (z. B. `0.2.0` bei `v0.2.0-beta.1`), da WiX
+keine textuellen Prerelease-Zusätze akzeptiert. Prereleases derselben Basisversion
+haben damit dieselbe MSI-Produktversion; für eindeutig unterscheidbare MSI-Updates
+die Basisversion erhöhen. Major und Minor dürfen höchstens 255, Patch höchstens
+65535 sein. Erst wenn **alle** Builds und
 Tests erfolgreich sind, werden sämtliche Installer hochgeladen und das Release
 veröffentlicht. Ein bereits veröffentlichtes Release wird nicht überschrieben;
 einen neuen Tag verwenden. Ein unterbrochener Upload bleibt als Entwurf bestehen
