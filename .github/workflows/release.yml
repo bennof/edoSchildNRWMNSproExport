@@ -47,10 +47,10 @@ jobs:
             bundles: dmg
           - os: ubuntu-24.04
             target: x86_64-unknown-linux-gnu
-            bundles: deb,rpm,appimage
+            bundles: deb,appimage
           - os: ubuntu-24.04-arm
             target: aarch64-unknown-linux-gnu
-            bundles: deb,rpm,appimage
+            bundles: deb,appimage
           - os: windows-2022
             target: x86_64-pc-windows-msvc
             bundles: nsis,msi
@@ -92,6 +92,11 @@ jobs:
           args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
           uploadUpdaterJson: false
           uploadUpdaterSignatures: false
+      - name: Package RPM with compatible version
+        if: runner.os == 'Linux'
+        run: |
+          node --import tsx scripts/rpm-config.ts
+          npm run tauri -- bundle --target ${{ matrix.target }} --bundles rpm --config src-tauri/tauri.rpm.generated.json
       - name: Collect installer packages
         run: node --import tsx scripts/collect-release.ts
         env:

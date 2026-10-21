@@ -212,6 +212,12 @@ git tag v0.2.0
 git push origin v0.2.0
 ```
 
+RPM wird nach dem Build separat aus dem vorhandenen Programm paketiert. Dabei
+wird beispielsweise `0.1.0-alpha.2` in RPM-Version `0.1.0` und Release
+`0.alpha.2` übersetzt; stabile Versionen erhalten Release `1`. So bleiben
+Prereleases vor der stabilen Version einsortiert. Die kompilierte App sowie
+DEB und AppImage behalten die vollständige Tag-Version.
+
 `v0.2.0-beta.1` erzeugt ein Prerelease. Die Tag-Version wird im temporären
 CI-Checkout in die Tauri-Konfiguration übernommen. Für MSI wird separat die
 numerische Basisversion verwendet (z. B. `0.2.0` bei `v0.2.0-beta.1`), da WiX

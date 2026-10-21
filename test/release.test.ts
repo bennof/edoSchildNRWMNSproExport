@@ -23,6 +23,18 @@ test('CI übernimmt Tag-Version und sammelt nur Installer mit eindeutigen Namen'
       assert.equal(result.version, tag.slice(1));
       assert.equal(result.bundle.windows.wix.version, tag.slice(1).split('-')[0]);
     }
+    for (const [version, rpmVersion, release] of [
+      ['0.1.0-alpha.2', '0.1.0', '0.alpha.2'],
+      ['0.1.0-beta-test.3', '0.1.0', '0.beta.test.3'],
+      ['0.1.0', '0.1.0', '1'],
+    ]) {
+      writeFileSync(config, JSON.stringify({ version }));
+      assert.equal(run('rpm-config.ts', {}).status, 0);
+      const rpm = JSON.parse(readFileSync(join(cwd, 'src-tauri/tauri.rpm.generated.json'), 'utf8'));
+      assert.equal(rpm.version, rpmVersion);
+      assert.equal(rpm.bundle.linux.rpm.release, release);
+      assert.equal(JSON.parse(readFileSync(config, 'utf8')).version, version);
+    }
     const beforeInvalid = readFileSync(config, 'utf8');
     for (const tag of ['invalid', 'v256.0.0', 'v0.256.0', 'v0.0.65536']) {
       assert.notEqual(run('release-config.ts', { GITHUB_REF_NAME: tag }).status, 0);
