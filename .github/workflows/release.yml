@@ -1,0 +1,158 @@
+name: Desktop builds and releases
+
+on:
+  push:
+    branches: ['**']
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+jobs:
+  checks:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - name: Validate release tag
+        if: startsWith(github.ref, 'refs/tags/')
+        run: node --import tsx scripts/release-config.ts
+
+  desktop:
+    needs: checks
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            target: aarch64-apple-darwin
+            bundles: dmg
+          - os: macos-15-intel
+            target: x86_64-apple-darwin
+            bundles: dmg
+          - os: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+            bundles: deb,rpm,appimage
+          - os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            bundles: deb,rpm,appimage
+          - os: windows-2022
+            target: x86_64-pc-windows-msvc
+            bundles: nsis,msi
+          - os: windows-11-arm
+            target: aarch64-pc-windows-msvc
+            bundles: nsis
+          - os: windows-2022
+            target: i686-pc-windows-msvc
+            bundles: nsis,msi
+    env:
+      CARGO_TERM_COLOR: always
+      APPIMAGE_EXTRACT_AND_RUN: '1'
+      NO_STRIP: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+          key: ${{ matrix.target }}
+      - name: Linux build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev librsvg2-dev libayatana-appindicator3-dev patchelf libfuse2t64 rpm
+      - run: npm ci
+      - name: Apply release version from tag
+        if: startsWith(github.ref, 'refs/tags/')
+        run: node --import tsx scripts/release-config.ts
+      - name: Build desktop packages
+        uses: tauri-apps/tauri-action@v1
+        with:
+          args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
+          includeUpdaterJson: false
+          uploadUpdaterSignatures: false
+      - name: Collect installer packages
+        run: node --import tsx scripts/collect-release.ts
+        env:
+          BUILD_TARGET: ${{ matrix.target }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.target }}
+          path: release-assets/*
+          if-no-files-found: error
+          retention-days: 14
+      - name: Rust tests (runner architecture)
+        run: cargo test --locked --manifest-path src-tauri/Cargo.toml
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/') && github.event_name == 'push'
+    needs: [checks, desktop]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: desktop-*
+          path: release-assets
+          merge-multiple: true
+      - name: Publish complete release
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('node:fs');
+            const path = require('node:path');
+            const tag = context.ref.replace('refs/tags/', '');
+            const files = [];
+            function collect(dir) {
+              for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+                const p = path.join(dir, entry.name);
+                if (entry.isDirectory()) collect(p);
+                else files.push(p);
+              }
+            }
+            collect('release-assets');
+            if (!files.length) throw new Error('No release packages found');
+            const names = files.map(p => path.basename(p));
+            if (new Set(names).size !== names.length) throw new Error('Duplicate asset names');
+            const releases = await github.paginate(github.rest.repos.listReleases, { ...context.repo, per_page: 100 });
+            let release = releases.find(r => r.tag_name === tag);
+            if (release && !release.draft) throw new Error('Release already published; use a new tag.');
+            if (!release) {
+              release = (await github.rest.repos.createRelease({
+                ...context.repo, tag_name: tag, name: `SVWS CSV Export ${tag}`,
+                draft: true, prerelease: tag.includes('-'), generate_release_notes: true
+              })).data;
+            }
+            const oldAssets = await github.paginate(github.rest.repos.listReleaseAssets, { ...context.repo, release_id: release.id, per_page: 100 });
+            for (const file of files) {
+              const name = path.basename(file);
+              const old = oldAssets.find(a => a.name === name);
+              if (old) await github.rest.repos.deleteReleaseAsset({ ...context.repo, asset_id: old.id });
+              await github.rest.repos.uploadReleaseAsset({
+                ...context.repo, release_id: release.id, name,
+                data: fs.readFileSync(file)
+              });
+            }
+            await github.rest.repos.updateRelease({ ...context.repo, release_id: release.id, draft: false });

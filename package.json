@@ -1,0 +1,34 @@
+{
+  "name": "schild-svws-csv-export",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "export": "node --import tsx scripts/export.ts",
+    "test": "node --import tsx --test test/*.test.ts",
+    "dev": "vite",
+    "build": "npm run check && vite build",
+    "check": "tsc --noEmit && svelte-check --tsconfig ./tsconfig.json",
+    "tauri": "tauri",
+    "desktop:dev": "tauri dev",
+    "desktop:build": "tauri build",
+    "desktop:test": "cargo test --manifest-path src-tauri/Cargo.toml"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.12.4",
+    "uuid": "^14.0.3"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^7.3.1",
+    "@tauri-apps/cli": "^2.12.3",
+    "@types/node": "^26.6.5",
+    "svelte": "^5.57.2",
+    "svelte-check": "^4.7.7",
+    "tsx": "^4.23.15",
+    "typescript": "~6.0.3",
+    "vite": "^8.3.4"
+  }
+}
