@@ -197,9 +197,12 @@ Die Installer sind 14 Tage als Workflow-Artefakte verfügbar.
 | System | Architektur | Pakete |
 | --- | --- | --- |
 | macOS | Apple Silicon, Intel | DMG |
-| Linux | x64, ARM64 | DEB, RPM, AppImage |
-| Windows | x64, x86 (32 Bit) | NSIS EXE, MSI |
-| Windows | ARM64 | NSIS EXE |
+| Linux | x64, ARM64 | DEB, RPM |
+| Windows | x64, x86 (32 Bit) | MSI, portable EXE |
+
+Die portable EXE (`…_portable.exe`) ist das fertige Programm mit eingebetteter
+Oberfläche und läuft ohne Installation. Sie benötigt nur die Microsoft
+WebView2-Runtime, die unter Windows 11 und aktuellem Windows 10 vorinstalliert ist.
 
 Die Matrix verwendet [GitHub-hosted Runner](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)
 und die offizielle [Tauri-Build-Action](https://github.com/tauri-apps/tauri-action).
@@ -216,7 +219,7 @@ RPM wird nach dem Build separat aus dem vorhandenen Programm paketiert. Dabei
 wird beispielsweise `0.1.0-alpha.2` in RPM-Version `0.1.0` und Release
 `0.alpha.2` übersetzt; stabile Versionen erhalten Release `1`. So bleiben
 Prereleases vor der stabilen Version einsortiert. Die kompilierte App sowie
-DEB und AppImage behalten die vollständige Tag-Version.
+DEB behält die vollständige Tag-Version.
 
 `v0.2.0-beta.1` erzeugt ein Prerelease. Die Tag-Version wird im temporären
 CI-Checkout in die Tauri-Konfiguration übernommen. Für MSI wird separat die

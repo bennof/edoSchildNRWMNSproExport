@@ -47,5 +47,15 @@ test('CI übernimmt Tag-Version und sammelt nur Installer mit eindeutigen Namen'
     writeFileSync(join(bundle, 'macos/App.app/binary'), 'ignore');
     assert.equal(run('collect-release.ts', { BUILD_TARGET: 'aarch64-apple-darwin' }).status, 0);
     assert.deepEqual(readdirSync(join(cwd, 'release-assets')), ['aarch64-apple-darwin-App.dmg']);
+    writeFileSync(config, JSON.stringify({ productName: 'App', version: '1.2.3' }));
+    const win = join(cwd, 'src-tauri/target/x86_64-pc-windows-msvc/release');
+    mkdirSync(join(win, 'bundle/msi'), { recursive: true });
+    mkdirSync(join(win, 'build/x/out'), { recursive: true });
+    writeFileSync(join(win, 'bundle/msi/App.msi'), 'fixture');
+    writeFileSync(join(win, 'app.exe'), 'fixture');
+    writeFileSync(join(win, 'build/x/out/build-script.exe'), 'ignore');
+    assert.equal(run('collect-release.ts', { BUILD_TARGET: 'x86_64-pc-windows-msvc' }).status, 0);
+    assert.deepEqual(readdirSync(join(cwd, 'release-assets')).sort(), ['aarch64-apple-darwin-App.dmg',
+      'x86_64-pc-windows-msvc-App.msi', 'x86_64-pc-windows-msvc-App_1.2.3_portable.exe']);
   } finally { rmSync(cwd, { recursive: true, force: true }); }
 });
